@@ -1,6 +1,12 @@
 #include <Wire.h>
 #include "DFRobot_TCS34725.h"
 #include <ArduinoBLE.h>
+#include <Adafruit_GFX.h>  //核心圖形庫
+#include <Adafruit_ST7735.h>  //Hardware-specific library for ST7735
+#include <Fonts/FreeMonoBold9pt7b.h>  //字型FreeMonoBold9pt7b
+#include <Fonts/FreeSansBold9pt7b.h>  //字型FreeSansBold9pt7b
+#include <Fonts/FreeSerif9pt7b.h>  //字型FreeSerif9pt7b
+#include <SPI.h> 
 
 #define redpin 4
 #define greenpin 5
@@ -16,6 +22,10 @@
 //兩個按鈕的接角
 #define button_get 7
 #define button_delete 8
+
+#define TFT_CS  2 // TFT CS PIN腳
+#define TFT_DC   3 // TFT DC(A0、RS) PIN腳
+#define TFT_RST  9 // TFT RES(Reset) PIN腳
 
 int counter = 1;
 int just_record = 0;
@@ -37,6 +47,7 @@ unsigned long lastMillis; // record last millis
 byte gammatable[256];
 
 DFRobot_TCS34725 tcs = DFRobot_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
 BLEService penService("19B10000-E8F2-537E-4F6C-D104768A1214"); 
 // Bluetooth® Low Energy LED Switch Characteristic - custom 128-bit UUID, read and writable by central //後面的111111是定義傳多長
@@ -52,6 +63,14 @@ void setup() {
     Serial.println("No TCS34725 found ... check your connections");
     // while (1); // halt!
   }
+  
+  tft.initR(INITR_BLACKTAB);      // Init ST7735S chip, black tab
+  tft.setRotation(1);  //螢幕轉向
+  tft.fillScreen(ST77XX_BLACK);  //設定螢幕背景為黑色
+  
+  tft.drawRect(53, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+  
+
   if (!BLE.begin()) {
     Serial.println("starting Bluetooth® Low Energy module failed!");
     // while (1);
@@ -109,11 +128,12 @@ void loop() {
   
   BLEDevice central = BLE.central();
   // if a central is connected to peripheral:
+  //已經連到藍芽偵測的動作
   if (central) {
     Serial.print("Connected to central: ");
     // print the central's MAC address:
     Serial.println(central.address());
-
+    
     // while the central is still connected to peripheral:
     while (central.connected()) {
       // if the remote device wrote to the characteristic,
@@ -125,12 +145,13 @@ void loop() {
           Serial.println(F("LED off"));
         }
       }
+      
       long measurement = TP_init(); 
       if (measurement > 20000){
         Serial.println("shake");
         mix_color();
-        Serial.println(freeMemory(), DEC);
-        // delay(100);
+        
+        delay(100);
       }
 
       if (digitalRead(button_get) == LOW){ //當擷取按鈕按下
@@ -161,7 +182,7 @@ void loop() {
             Serial.println(red);
             Serial.println(green);
             Serial.println(blue);
-            Serial.println(freeMemory(), DEC);
+            // Serial.println(freeMemory(), DEC);
            
             Serial.println("-----------");
 
@@ -185,6 +206,61 @@ void loop() {
     Serial.print(F("Disconnected from central: "));
     Serial.println(central.address());
   }
+
+  //還沒連到藍芽偵測的動作
+  long measurement = TP_init(); 
+      if (measurement > 20000){
+        Serial.println("shake");
+        mix_color();
+        delay(100);
+      }
+
+      if (digitalRead(button_get) == LOW){ //當擷取按鈕按下
+      
+          if (debounced() && digitalRead(button_get) == LOW)
+          {//避免按下去就跑好多次，或是按住不放的情形
+          while(digitalRead(button_get) == LOW);
+         
+            //偵測顏色
+            uint16_t clear, red, green, blue;
+            tcs.getRGBC(&red, &green, &blue, &clear);
+            if(clear<20 && red<15 && green<15 && blue<15){
+              red = 0;
+              green = 0;
+              blue = 0;
+            }
+            //轉成HEX
+            uint32_t sum = clear;
+            float r, g, b;
+            r = red; r /= sum;
+            g = green; g /= sum;
+            b = blue; b /= sum;
+            r *= 256; g *= 256; b *= 256;
+
+            recording(r,g,b,clear); //呼叫擷取的function
+            Serial.println("-----------");
+            Serial.println(clear);
+            Serial.println(red);
+            Serial.println(green);
+            Serial.println(blue);
+            // Serial.println(freeMemory(), DEC);
+           
+            Serial.println("-----------");
+
+            Serial.print((int)r, HEX); Serial.print((int)g, HEX); Serial.print((int)b, HEX);
+            Serial.println();
+            for (int i = 0; i < 8; i++) {
+                Serial.print(record[i]);
+                Serial.print("\t"); 
+            }
+          }
+      }
+      if (digitalRead(button_delete) == LOW){//當按下刪除鍵
+         if (debounced() && digitalRead(button_delete) == LOW){
+           while(digitalRead(button_delete) == LOW);
+           delete_record();
+         }
+      }
 
     }
       
@@ -217,6 +293,8 @@ void recording(byte r,byte g,byte b,byte c){
               record[2]=(int)b;
               record[3]=(int)c;
               Serial.println("firstdetect");
+              tft.drawRect(3, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+              tft.fillRect(6, 6, 44, 114, getColor(r,g,b)); //填滿方形 x,y,w,h,顏色值
               counter ++;
               analogWrite(redpin, gammatable[(int)r]);
               analogWrite(greenpin, gammatable[(int)g]);
@@ -231,6 +309,8 @@ void recording(byte r,byte g,byte b,byte c){
               record[6]=(int)b;
               record[7]=(int)c;
               Serial.println("seconddetect");
+              tft.drawRect(103, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+              tft.fillRect(106, 6, 44, 114, getColor(r,g,b));
               counter ++;
               analogWrite(redpin2, gammatable[(int)r]);
               analogWrite(greenpin2, gammatable[(int)g]);
@@ -243,6 +323,8 @@ void recording(byte r,byte g,byte b,byte c){
               record[2]=(int)b;
               record[3]=(int)c;
               Serial.println("firstdetect");
+              tft.drawRect(3, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+              tft.fillRect(6, 6, 44, 114, getColor(r,g,b));
               counter = 2;
               just_record = 1;
               analogWrite(redpin, gammatable[(int)r]);
@@ -299,6 +381,13 @@ void delete_record(){
 
 }
 
+uint16_t getColor(uint8_t red, uint8_t green, uint8_t blue){
+  red   >>= 3;
+  green >>= 2;
+  blue  >>= 3;
+  return (red << 11) | (green << 5) | blue;
+}
+
 boolean debounced() { //檢查是否按住不放以及避免按下一次就跑很多次的function
   unsigned long currentMillis = millis(); // get current elapsed time
   if ((currentMillis - lastMillis) > debounceDelay) {
@@ -308,23 +397,6 @@ boolean debounced() { //檢查是否按住不放以及避免按下一次就跑�
   else {return false;} // not debounced
 }
 
-#ifdef __arm__
-// should use uinstd.h to define sbrk but Due causes a conflict
-extern "C" char* sbrk(int incr);
-#else  // __ARM__
-extern char *__brkval;
-#endif  // __arm__
-
-int freeMemory() {
-  char top;
-#ifdef __arm__
-  return &top - reinterpret_cast<char*>(sbrk(0));
-#elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
-  return &top - __brkval;
-#else  // __arm__
-  return __brkval ? &top - __brkval : &top - __malloc_heap_start;
-#endif  // __arm__
-}
 
 
 
