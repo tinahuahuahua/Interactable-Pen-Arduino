@@ -7,17 +7,19 @@
 #include <Fonts/FreeSansBold9pt7b.h>  //字型FreeSansBold9pt7b
 #include <Fonts/FreeSerif9pt7b.h>  //字型FreeSerif9pt7b
 #include <SPI.h> 
+#include <stdio.h>
 
-#define redpin 4
-#define greenpin 5
-#define bluepin 6
-#define redpin2 9
-#define greenpin2 10
-#define bluepin2 11
-#define redpin_mix 2
-#define greenpin_mix 3
-#define bluepin_mix 12
+// #define redpin 4
+// #define greenpin 5
+// #define bluepin 6
+// #define redpin2 9
+// #define greenpin2 10
+// #define bluepin2 11
+// #define redpin_mix 2
+// #define greenpin_mix 3
+// #define bluepin_mix 12
 #define vibr 21
+
 
 //兩個按鈕的接角
 #define button_get 7
@@ -53,24 +55,18 @@ BLEService penService("19B10000-E8F2-537E-4F6C-D104768A1214");
 // Bluetooth® Low Energy LED Switch Characteristic - custom 128-bit UUID, read and writable by central //後面的111111是定義傳多長
 BLECharacteristic switchCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1214", BLERead | BLEWrite, "111111");
 
-void setup() {
+void setup(void) {
   Serial.begin(115200);
-  Serial.println("Color View Test!");
   
+  //顏色感測器
   if (tcs.begin()) {
     Serial.println("Found sensor");
   } else {
     Serial.println("No TCS34725 found ... check your connections");
     // while (1); // halt!
   }
-  
-  tft.initR(INITR_BLACKTAB);      // Init ST7735S chip, black tab
-  tft.setRotation(1);  //螢幕轉向
-  tft.fillScreen(ST77XX_BLACK);  //設定螢幕背景為黑色
-  
-  tft.drawRect(53, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
-  
 
+  //藍芽初始化
   if (!BLE.begin()) {
     Serial.println("starting Bluetooth® Low Energy module failed!");
     // while (1);
@@ -88,25 +84,34 @@ void setup() {
     // switchCharacteristic.writeValue("4287f5");
     // start advertising
     BLE.advertise();
-    Serial.println("BLE LED Peripheral");
+    Serial.println("BLE Peripheral");
+
+  //螢幕
+  tft.initR(INITR_BLACKTAB);// Init ST7735S chip, black tab
+  tft.setRotation(1);  //螢幕轉向
+  tft.fillScreen(ST77XX_BLACK);  //設定螢幕背景為黑色
+  // tft.drawRect(3, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+  // tft.drawRect(53, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+  // tft.drawRect(103, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+
   // use these three pins to drive an LED
-  pinMode(redpin, OUTPUT);
-  pinMode(greenpin, OUTPUT);
-  pinMode(bluepin, OUTPUT);
+  // pinMode(redpin, OUTPUT);
+  // pinMode(greenpin, OUTPUT);
+  // pinMode(bluepin, OUTPUT);
 
-  pinMode(redpin2, OUTPUT);
-  pinMode(greenpin2, OUTPUT);
-  pinMode(bluepin2, OUTPUT);
+  // pinMode(redpin2, OUTPUT);
+  // pinMode(greenpin2, OUTPUT);
+  // pinMode(bluepin2, OUTPUT);
 
-  pinMode(redpin_mix, OUTPUT);
-  pinMode(greenpin_mix, OUTPUT);
-  pinMode(bluepin_mix, OUTPUT);
+  // pinMode(redpin_mix, OUTPUT);
+  // pinMode(greenpin_mix, OUTPUT);
+  // pinMode(bluepin_mix, OUTPUT);
 
   pinMode(button_get,INPUT_PULLUP);
   pinMode(button_delete,INPUT_PULLUP);
 
   pinMode(vibr,INPUT);
-
+  
   // thanks PhilB for this gamma table!
   // it helps convert RGB colors to what humans see //把RGB轉成人類可難到的亮光(LED上)
   for (int i=0; i<256; i++) {
@@ -127,6 +132,7 @@ void setup() {
 void loop() {
   
   BLEDevice central = BLE.central();
+
   // if a central is connected to peripheral:
   //已經連到藍芽偵測的動作
   if (central) {
@@ -145,12 +151,11 @@ void loop() {
           Serial.println(F("LED off"));
         }
       }
-      
+      scan_mix();
       long measurement = TP_init(); 
-      if (measurement > 20000){
+      if (measurement > 30000){
         Serial.println("shake");
         mix_color();
-        
         delay(100);
       }
 
@@ -185,7 +190,6 @@ void loop() {
             // Serial.println(freeMemory(), DEC);
            
             Serial.println("-----------");
-
             Serial.print((int)r, HEX); Serial.print((int)g, HEX); Serial.print((int)b, HEX);
             Serial.println();
             for (int i = 0; i < 8; i++) {
@@ -208,14 +212,17 @@ void loop() {
   }
 
   //還沒連到藍芽偵測的動作
+  scan_mix();
   long measurement = TP_init(); 
-      if (measurement > 20000){
+      if (measurement > 30000){
         Serial.println("shake");
         mix_color();
         delay(100);
       }
 
+
       if (digitalRead(button_get) == LOW){ //當擷取按鈕按下
+      
       
           if (debounced() && digitalRead(button_get) == LOW)
           {//避免按下去就跑好多次，或是按住不放的情形
@@ -236,6 +243,8 @@ void loop() {
             g = green; g /= sum;
             b = blue; b /= sum;
             r *= 256; g *= 256; b *= 256;
+            // tft.drawRect(3, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
+            // tft.fillRect(6, 6, 44, 114, getColor(r,g,b)); //填滿方形 x,y,w,h,顏色值
 
             recording(r,g,b,clear); //呼叫擷取的function
             Serial.println("-----------");
@@ -271,18 +280,26 @@ long TP_init(){
 }
 
 void mix_color(){
+  if(record[3]==0 && record[7]==0)
+  {
+    Serial.print("shakeButDoNothing");
+  }
+  else
+  { 
     record_mix[0] = (record[0] + record[4])/2;
     record_mix[1] = (record[1] + record[5])/2;
     record_mix[2] = (record[2] + record[6])/2;
+    tft.drawRect(53, 3, 50, 120, 0xFFFF);
+    tft.fillRect(56, 6, 44, 114, getColor(record_mix[0],record_mix[1],record_mix[2]));
     // Serial.println("mix_color:"); 
     // for (int i = 0; i < 3; i++) {
     //   Serial.print("\t"); 
     //   Serial.print(record_mix[i]);
     // }
-    analogWrite(redpin_mix, gammatable[(int)record_mix[0]]);
-    analogWrite(greenpin_mix, gammatable[(int)record_mix[1]]);
-    analogWrite(bluepin_mix, gammatable[(int)record_mix[2]]);
-  
+    // analogWrite(redpin_mix, gammatable[(int)record_mix[0]]);
+    // analogWrite(greenpin_mix, gammatable[(int)record_mix[1]]);
+    // analogWrite(bluepin_mix, gammatable[(int)record_mix[2]]);
+   }
 }
 
 void recording(byte r,byte g,byte b,byte c){
@@ -293,12 +310,12 @@ void recording(byte r,byte g,byte b,byte c){
               record[2]=(int)b;
               record[3]=(int)c;
               Serial.println("firstdetect");
+              counter ++;
               tft.drawRect(3, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
               tft.fillRect(6, 6, 44, 114, getColor(r,g,b)); //填滿方形 x,y,w,h,顏色值
-              counter ++;
-              analogWrite(redpin, gammatable[(int)r]);
-              analogWrite(greenpin, gammatable[(int)g]);
-              analogWrite(bluepin, gammatable[(int)b]);
+              // analogWrite(redpin, gammatable[(int)r]);
+              // analogWrite(greenpin, gammatable[(int)g]);
+              // analogWrite(bluepin, gammatable[(int)b]);
               just_record = 1;
               
             }
@@ -310,11 +327,11 @@ void recording(byte r,byte g,byte b,byte c){
               record[7]=(int)c;
               Serial.println("seconddetect");
               tft.drawRect(103, 3, 50, 120, 0xFFFF); //畫一個方框 x,y,w,h,顏色值
-              tft.fillRect(106, 6, 44, 114, getColor(r,g,b));
+              tft.fillRect(106, 6, 44, 114, getColor(r,g,b)); //填滿方形 x,y,w,h,顏色值
               counter ++;
-              analogWrite(redpin2, gammatable[(int)r]);
-              analogWrite(greenpin2, gammatable[(int)g]);
-              analogWrite(bluepin2, gammatable[(int)b]);
+              // analogWrite(redpin2, gammatable[(int)r]);
+              // analogWrite(greenpin2, gammatable[(int)g]);
+              // analogWrite(bluepin2, gammatable[(int)b]);
               just_record = 2;
             }
   else if(counter >= 3){
@@ -327,9 +344,9 @@ void recording(byte r,byte g,byte b,byte c){
               tft.fillRect(6, 6, 44, 114, getColor(r,g,b));
               counter = 2;
               just_record = 1;
-              analogWrite(redpin, gammatable[(int)r]);
-              analogWrite(greenpin, gammatable[(int)g]);
-              analogWrite(bluepin, gammatable[(int)b]);
+              // analogWrite(redpin, gammatable[(int)r]);
+              // analogWrite(greenpin, gammatable[(int)g]);
+              // analogWrite(bluepin, gammatable[(int)b]);
               
 
   }
@@ -348,9 +365,11 @@ void delete_record(){
                 record[6]=0;
                 record[7]=0;
                 counter = 2;
-                analogWrite(redpin2, gammatable[0]);
-                analogWrite(greenpin2, gammatable[0]);
-                analogWrite(bluepin2, gammatable[0]);
+                tft.drawRect(103, 3, 50, 120, ST77XX_BLACK); //畫一個方框 x,y,w,h,顏色值
+                tft.fillRect(106, 6, 44, 114, ST77XX_BLACK); //填滿方形 x,y,w,h,顏色值
+                // analogWrite(redpin2, gammatable[0]);
+                // analogWrite(greenpin2, gammatable[0]);
+                // analogWrite(bluepin2, gammatable[0]);
                 Serial.println();
                 for (int i = 0; i < 8; i++) {
                     Serial.print(record[i]);
@@ -367,9 +386,11 @@ void delete_record(){
               record[2]=0;
               record[3]=0;
               counter = 1;
-              analogWrite(redpin, gammatable[0]);
-              analogWrite(greenpin, gammatable[0]);
-              analogWrite(bluepin, gammatable[0]);
+              tft.drawRect(3, 3, 50, 120, ST77XX_BLACK); //畫一個方框 x,y,w,h,顏色值
+              tft.fillRect(6, 6, 44, 114, ST77XX_BLACK); //填滿方形 x,y,w,h,顏色值
+              // analogWrite(redpin, gammatable[0]);
+              // analogWrite(greenpin, gammatable[0]);
+              // analogWrite(bluepin, gammatable[0]);
               Serial.println();
                 for (int i = 0; i < 8; i++) {
                     Serial.print(record[i]);
@@ -397,6 +418,14 @@ boolean debounced() { //檢查是否按住不放以及避免按下一次就跑�
   else {return false;} // not debounced
 }
 
+void scan_mix(){ //檢查Mix顯示的必要
+  if(record[3]==0 || record[7]==0)
+  {
+    tft.drawRect(53, 3, 50, 120, ST77XX_BLACK);
+    tft.fillRect(56, 6, 44, 114, ST77XX_BLACK);
+  }
+
+}
 
 
 
