@@ -6,7 +6,7 @@
 #include <Fonts/FreeMonoBold9pt7b.h>  //字型FreeMonoBold9pt7b
 #include <Fonts/FreeSansBold9pt7b.h>  //字型FreeSansBold9pt7b
 #include <Fonts/FreeSerif9pt7b.h>  //字型FreeSerif9pt7b
-#include <SPI.h> 
+#include <SPI.h>
 #include <stdio.h>
 
 // #define redpin 4
@@ -18,8 +18,7 @@
 // #define redpin_mix 2
 // #define greenpin_mix 3
 // #define bluepin_mix 12
-#define vibr 21
-
+#define vibr 5
 
 //兩個按鈕的接角
 #define button_get 7
@@ -132,7 +131,6 @@ void setup(void) {
 void loop() {
   
   BLEDevice central = BLE.central();
-
   // if a central is connected to peripheral:
   //已經連到藍芽偵測的動作
   if (central) {
