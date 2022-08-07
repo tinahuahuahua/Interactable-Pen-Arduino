@@ -6,6 +6,7 @@
 #include <Fonts/FreeMonoBold9pt7b.h>  //字型FreeMonoBold9pt7b
 #include <Fonts/FreeSansBold9pt7b.h>  //字型FreeSansBold9pt7b
 #include <Fonts/FreeSerif9pt7b.h>  //字型FreeSerif9pt7b
+#include <Arduino_LSM6DS3.h>
 #include <SPI.h>
 #include <stdio.h>
 
@@ -18,7 +19,7 @@
 // #define redpin_mix 2
 // #define greenpin_mix 3
 // #define bluepin_mix 12
-#define vibr 5
+#define vibr 21
 
 //兩個按鈕的接角
 #define button_get 7
@@ -33,6 +34,7 @@ int just_record = 0;
 int just_delete = 0;
 byte record[8];
 byte record_mix[3];
+float x, y, z;
 
 //boolean ledState = LOW;
 int debounceDelay = 200; // debounce delay (ms)
@@ -57,12 +59,19 @@ BLECharacteristic switchCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1214", B
 void setup(void) {
   Serial.begin(115200);
   
-  //顏色感測器
+  //顏色感測器初始化
   if (tcs.begin()) {
     Serial.println("Found sensor");
   } else {
     Serial.println("No TCS34725 found ... check your connections");
     // while (1); // halt!
+  }
+
+  //加速度感測器初始化
+  if (!IMU.begin()) {
+    while (1) {
+      Serial.println("IMU failed!");
+    }
   }
 
   //藍芽初始化
@@ -79,13 +88,13 @@ void setup(void) {
 
     // add service
     BLE.addService(penService);
-    // set the initial value for the characeristic: 這裡可以從arduino船
+    // set the initial value for the characeristic: 這裡可以從arduino傳
     // switchCharacteristic.writeValue("4287f5");
     // start advertising
     BLE.advertise();
     Serial.println("BLE Peripheral");
 
-  //螢幕
+  //螢幕初始化
   tft.initR(INITR_BLACKTAB);// Init ST7735S chip, black tab
   tft.setRotation(1);  //螢幕轉向
   tft.fillScreen(ST77XX_BLACK);  //設定螢幕背景為黑色
@@ -150,12 +159,12 @@ void loop() {
         }
       }
       scan_mix();
-      long measurement = TP_init(); 
-      if (measurement > 30000){
-        Serial.println("shake");
-        mix_color();
-        delay(100);
-      }
+      // long measurement = TP_init(); 
+      // if (measurement > 30000){
+      //   Serial.println("shake");
+      //   mix_color();
+      //   delay(100);
+      // }
 
       if (digitalRead(button_get) == LOW){ //當擷取按鈕按下
       
@@ -211,12 +220,18 @@ void loop() {
 
   //還沒連到藍芽偵測的動作
   scan_mix();
-  long measurement = TP_init(); 
-      if (measurement > 30000){
-        Serial.println("shake");
-        mix_color();
-        delay(100);
-      }
+
+  //讀取IMU的數值
+  if (IMU.accelerationAvailable()) {
+    IMU.readAcceleration(x, y, z);
+    delay(50);
+  }
+
+  //偵測IMU數值
+  if(abs(x) > 3 || abs(y) > 3 || abs(z) > 3) {
+    Serial.print("shake");
+    mix_color();
+  }
 
 
       if (digitalRead(button_get) == LOW){ //當擷取按鈕按下
@@ -272,13 +287,13 @@ void loop() {
     }
       
 
-long TP_init(){
-  long measurement=pulseIn (vibr, HIGH);  // 等待 D0 輸入高電壓，並回傳值
-  return measurement;
-}
+// long TP_init(){
+//   long measurement=pulseIn (vibr, HIGH);  // 等待 D0 輸入高電壓，並回傳值
+//   return measurement;
+// }
 
 void mix_color(){
-  if(record[3]==0 && record[7]==0)
+  if(record[3]==0 || record[7]==0)
   {
     Serial.print("shakeButDoNothing");
   }
