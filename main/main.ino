@@ -3,9 +3,6 @@
 // #include <ArduinoBLE.h>
 #include <Adafruit_GFX.h>  //核心圖形庫
 #include <Adafruit_ST7735.h>  //Hardware-specific library for ST7735
-// #include <Fonts/FreeMonoBold9pt7b.h>  //字型FreeMonoBold9pt7b
-// #include <Fonts/FreeSansBold9pt7b.h>  //字型FreeSansBold9pt7b
-// #include <Fonts/FreeSerif9pt7b.h>  //字型FreeSerif9pt7b
 #include <Arduino_LSM6DS3.h>
 #include <SPI.h>
 #include <stdio.h>
@@ -37,9 +34,9 @@ MqttClient mqttClient(wifiClient);
 
 const char broker[] = "broker.emqx.io";
 int        port     = 1883;
-const char color1_topic[]  = "color1_1";
-const char color2_topic[]  = "color2_1";
-const char mixcolor_topic[]  = "mixcolor_1";
+const char color1_topic[]  = "nccudct_color1_1";
+const char color2_topic[]  = "nccudct_color2_1";
+const char mixcolor_topic[]  = "nccudct_mixcolor_1";
 
 //set interval for sending messages (milliseconds)
 const long interval = 8000;
@@ -56,10 +53,6 @@ byte gammatable[256];
 
 DFRobot_TCS34725 tcs = DFRobot_TCS34725(TCS34725_INTEGRATIONTIME_50MS, TCS34725_GAIN_4X);
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
-
-// BLEService penService("19B10000-E8F2-537E-4F6C-D104768A1214"); 
-// // Bluetooth® Low Energy LED Switch Characteristic - custom 128-bit UUID, read and writable by central //後面的111111是定義傳多長
-// BLECharacteristic switchCharacteristic("19B10001-E8F2-537E-4F6C-D104768A1214", BLERead | BLEWrite, "111111");
 
 void setup(void) {
   Serial.begin(115200);
@@ -78,26 +71,6 @@ void setup(void) {
       Serial.println("IMU failed!");
     }
   }
-
-  // 藍芽初始化
-  // if (!BLE.begin()) {
-  //   Serial.println("starting Bluetooth® Low Energy module failed!");
-  //   // while (1);
-  // }
-  //   // set advertised local name and service UUID:
-  //   BLE.setLocalName("Pen");
-  //   BLE.setAdvertisedService(penService);
-
-  //   // add the characteristic to the service
-  //   penService.addCharacteristic(switchCharacteristic);
-
-  //   // add service
-  //   BLE.addService(penService);
-  //   // set the initial value for the characeristic: 這裡可以從arduino傳
-  //   // switchCharacteristic.writeValue("4287f5");
-  //   // start advertising
-  //   BLE.advertise();
-  //   Serial.println("BLE Peripheral");
 
   //螢幕初始化
   tft.initR(INITR_BLACKTAB);// Init ST7735S chip, black tab
@@ -195,7 +168,6 @@ void loop() {
             Serial.println(red);
             Serial.println(green);
             Serial.println(blue);
-            // Serial.println(freeMemory(), DEC);
            
             Serial.println("-----------");
 
@@ -213,90 +185,7 @@ void loop() {
            delete_record();
          }
       }
-
       // printWifiStatus();
-  
-  // BLEDevice central = BLE.central();
-  // if a central is connected to peripheral:
-  //已經連到藍芽偵測的動作
-  // if (central) {
-  //   Serial.print("Connected to central: ");
-  //   // print the central's MAC address:
-  //   Serial.println(central.address());
-    
-  //   // while the central is still connected to peripheral:
-  //   while (central.connected()) {
-  //     // if the remote device wrote to the characteristic,
-  //     // use the value to control the LED:
-  //     if (switchCharacteristic.written()) {
-  //       if (switchCharacteristic.value()) {   // any value other than 0
-  //         Serial.println("LED on");     
-  //       } else {                              // a 0 value
-  //         Serial.println(F("LED off"));
-  //       }
-  //     }
-  //     scan_mix();
-  //     // long measurement = TP_init(); 
-  //     // if (measurement > 30000){
-  //     //   Serial.println("shake");
-  //     //   mix_color();
-  //     //   delay(100);
-  //     // }
-
-  //     if (digitalRead(button_get) == LOW){ //當擷取按鈕按下
-      
-  //         if (debounced() && digitalRead(button_get) == LOW)
-  //         {//避免按下去就跑好多次，或是按住不放的情形
-  //         while(digitalRead(button_get) == LOW);
-         
-  //           //偵測顏色
-  //           uint16_t clear, red, green, blue;
-  //           tcs.getRGBC(&red, &green, &blue, &clear);
-  //           if(clear<20 && red<15 && green<15 && blue<15){
-  //             red = 0;
-  //             green = 0;
-  //             blue = 0;
-  //           }
-  //           //轉成HEX
-  //           uint32_t sum = clear;
-  //           float r, g, b;
-  //           r = red; r /= sum;
-  //           g = green; g /= sum;
-  //           b = blue; b /= sum;
-  //           r *= 256; g *= 256; b *= 256;
-
-  //           recording(r,g,b,clear); //呼叫擷取的function
-  //           Serial.println("-----------");
-  //           Serial.println(clear);
-  //           Serial.println(red);
-  //           Serial.println(green);
-  //           Serial.println(blue);
-  //           // Serial.println(freeMemory(), DEC);
-           
-  //           Serial.println("-----------");
-  //           Serial.print((int)r, HEX); Serial.print((int)g, HEX); Serial.print((int)b, HEX);
-  //           Serial.println();
-  //           for (int i = 0; i < 8; i++) {
-  //               Serial.print(record[i]);
-  //               Serial.print("\t"); 
-  //           }
-  //         }
-  //     }
-  //     if (digitalRead(button_delete) == LOW){//當按下刪除鍵
-  //        if (debounced() && digitalRead(button_delete) == LOW){
-  //          while(digitalRead(button_delete) == LOW);
-  //          delete_record();
-  //        }
-  //     }
-      
-  //   }
-  //   // when the central disconnects, print it out:
-  //   Serial.print(F("Disconnected from central: "));
-  //   Serial.println(central.address());
-  // }
-
-
-
     }
       
 
@@ -319,10 +208,10 @@ void mix_color(){
     if((int)record_mix[0]<16){
       hex1 = "0"+hex1;
     }
-    else if((int)record_mix[1]<16){
+    if((int)record_mix[1]<16){
       hex2 = "0"+hex2;
     }
-    else if((int)record_mix[2]<16){
+    if((int)record_mix[2]<16){
       hex3 = "0"+hex3;
     }
     mqttClient.beginMessage(mixcolor_topic);
@@ -361,10 +250,10 @@ void recording(byte r,byte g,byte b,byte c){
               if((int)r<16){
                 hex1 = "0"+hex1;
               }
-              else if((int)g<16){
+              if((int)g<16){
                 hex2 = "0"+hex2;
               }
-              else if((int)b<16){
+              if((int)b<16){
                 hex3 = "0"+hex3;
               }
               mqttClient.beginMessage(color1_topic);
@@ -394,10 +283,10 @@ void recording(byte r,byte g,byte b,byte c){
               if((int)r<16){
                 hex1 = "0"+hex1;
               }
-              else if((int)g<16){
+              if((int)g<16){
                 hex2 = "0"+hex2;
               }
-              else if((int)b<16){
+              if((int)b<16){
                 hex3 = "0"+hex3;
               }
               mqttClient.beginMessage(color2_topic);
@@ -420,10 +309,10 @@ void recording(byte r,byte g,byte b,byte c){
               if((int)r<16){
                 hex1 = "0"+hex1;
               }
-              else if((int)g<16){
+              if((int)g<16){
                 hex2 = "0"+hex2;
               }
-              else if((int)b<16){
+              if((int)b<16){
                 hex3 = "0"+hex3;
               }
               mqttClient.beginMessage(color1_topic);
@@ -447,9 +336,15 @@ void delete_record(){
                 counter = 2;
                 tft.drawRect(103, 3, 50, 120, ST77XX_BLACK); //畫一個方框 x,y,w,h,顏色值
                 tft.fillRect(106, 6, 44, 114, ST77XX_BLACK); //填滿方形 x,y,w,h,顏色值
+
                 mqttClient.beginMessage(color2_topic);
-                mqttClient.print("000000");
+                mqttClient.print("delete2");
                 mqttClient.endMessage();
+
+                mqttClient.beginMessage(mixcolor_topic);
+                mqttClient.print("deletemix");
+                mqttClient.endMessage();
+
                 Serial.println();
                 for (int i = 0; i < 8; i++) {
                     Serial.print(record[i]);
@@ -467,8 +362,13 @@ void delete_record(){
               counter = 1;
               tft.drawRect(3, 3, 50, 120, ST77XX_BLACK); //畫一個方框 x,y,w,h,顏色值
               tft.fillRect(6, 6, 44, 114, ST77XX_BLACK); //填滿方形 x,y,w,h,顏色值
+
               mqttClient.beginMessage(color1_topic);
-              mqttClient.print("000000");
+              mqttClient.print("delete1");
+              mqttClient.endMessage();
+
+              mqttClient.beginMessage(mixcolor_topic);
+              mqttClient.print("deletemix");
               mqttClient.endMessage();
 
               Serial.println();
